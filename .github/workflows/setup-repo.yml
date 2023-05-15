@@ -1,0 +1,19 @@
+name: Setup a new technical challenge repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      github-username:
+        description: 'The GitHub username of the candidate'
+        required: true
+
+jobs:
+  setup-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run the setup script
+        run: ./scripts/setup.sh "${{ github.event.inputs.github-username }}"
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.CREATE_REPO_TOKEN }}
