@@ -93,6 +93,61 @@ function create_repo {
   gh repo-collab add "${repo_name}" "${github_username}" --permission write | cat
 }
 
+# Output a list of all issues in the template repository. Each entry will be a
+# JSON string that includes the title, body, and labels.
+function get_issues {
+  gh issue list --repo "${TEMPLATE_REPO}" --json title,body,labels | jq -c '.[]'
+}
+
+# Output a JSON list of all pull requests in the template repository. Each
+# entry will be a JSON string that includes the title, body, and the branch
+# name (under the key 'headRefName')
+function get_prs {
+  gh pr list --repo "${TEMPLATE_REPO}" --json title,body,headRefName | jq -c '.[]'
+}
+
+
+
+# Create issues in the technical challenge repository
+# $1 - The name of the new repository
+function add_issues {
+  local repo_name="${1}"
+
+  local issues
+  mapfile -t issues < <(get_issues)
+
+  local body
+  local title
+  local labels
+
+  for issue in "${issues[@]}"; do
+    title="$(jq -r '.title' <<< "${issue}")"
+    body="$(jq -r '.body' <<< "${issue}")"
+    labels="$(jq -r '.labels | map(.name) | join(",")' <<< "${issue}")"
+    gh issue create --repo "${repo_name}" --title "${title}" --body "${body}"  --label "${labels}"
+  done
+}
+
+# Create pull requests in the technical challenge repository
+# $1 - The name of the new repository
+function add_prs {
+  local repo_name="${1}"
+
+  local prs
+  mapfile -t prs < <(get_prs)
+
+  local body
+  local title
+  local branch_name
+
+  for pr in "${prs[@]}"; do
+    body="$(jq -r '.body' <<< "${pr}")"
+    title="$(jq -r '.title' <<< "${pr}")"
+    branch_name="$(jq -r '.headRefName' <<< "${pr}")"
+    gh pr create --repo "${repo_name}" --head "${branch_name}" --title "${title}" --body "${body}"
+  done
+}
+
 function main {
   local github_username
 
@@ -137,6 +192,11 @@ function main {
   repo_name="$(get_repo_name "${github_username}")"
 
   create_repo "${repo_name}" "${github_username}"
+
+  # Add PRs first because one of the issues references a PR as "#1"
+  add_prs "${repo_name}"
+
+  add_issues "${repo_name}"
 }
 
 main "${@}"
