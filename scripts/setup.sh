@@ -71,9 +71,6 @@ function create_repo {
   local temporary_directory
   temporary_directory="$(mktemp -d)"
 
-  # Ensure clone uses SSH protocol so that later push attempts don't require username/password
-  gh config set git_protocol ssh
-
   gh repo clone "${TEMPLATE_REPO}" "${temporary_directory}"
 
   # set an arbirary remote name that does not conflict with 'origin'
@@ -81,6 +78,12 @@ function create_repo {
   remote_name='clone'
 
   gh repo create "${repo_name}" --private --source "${temporary_directory}" --remote "${remote_name}" --push
+
+  # Configure the repo with the personal access token so that pushes work
+  # Source: <https://github.com/actions/checkout/blob/f095bcc56b7c2baf48f3ac70d6d6782f4f553222/src/git-auth-helper.ts>
+  local encoded_token
+  encoded_token="$(echo -n "x-access-token:${GITHUB_TOKEN}" | base64)"
+  (cd "${temporary_directory}" && git config "http.https://github.com/.extraHeader" "Authorization: Basic ${encoded_token}")
 
   # Sync additional branches needed for PRs
   local remote_branches
