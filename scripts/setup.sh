@@ -56,6 +56,11 @@ function get_repo_name {
   echo "${TEMPLATE_REPO}-${github_username}"
 }
 
+# Get the branch names for all template repository PRs
+function get_pr_branches {
+  gh pr list --repo "${TEMPLATE_REPO}" --json headRefName | jq -r '.[].headRefName'
+}
+
 # Create a new technical challenge repository
 # $1 - The name of the new repository
 # $2 - The GitHub username of the candidate
@@ -63,7 +68,27 @@ function create_repo {
   local repo_name="${1}"
   local github_username="${2}"
 
-  gh repo create "${repo_name}" --private --template "${TEMPLATE_REPO}" --include-all-branches
+  local temporary_directory
+  temporary_directory="$(mktemp -d)"
+
+  gh repo clone "${TEMPLATE_REPO}" "${temporary_directory}"
+
+  # set an arbirary remote name that does not conflict with 'origin'
+  local remote_name
+  remote_name='clone'
+
+  gh repo create "${repo_name}" --private --source "${temporary_directory}" --remote "${remote_name}" --push
+
+  # Sync additional branches needed for PRs
+  local remote_branches
+  mapfile -t remote_branches < <(get_pr_branches)
+
+  for branch in "${remote_branches[@]}"; do
+    (cd "${temporary_directory}" && git push "${remote_name}" "refs/remotes/origin/${branch}:refs/heads/${branch}")
+  done
+
+  rm -rf "${temporary_directory}"
+
   # Use '| cat' to suppress prompt for confirmation
   gh repo-collab add "${repo_name}" "${github_username}" --permission write | cat
 }
