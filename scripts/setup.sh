@@ -71,6 +71,9 @@ function create_repo {
   local temporary_directory
   temporary_directory="$(mktemp -d)"
 
+  # Ensure clone uses SSH protocol so that later push attempts don't require username/password
+  gh config set git_protocol ssh
+
   gh repo clone "${TEMPLATE_REPO}" "${temporary_directory}"
 
   # set an arbirary remote name that does not conflict with 'origin'
