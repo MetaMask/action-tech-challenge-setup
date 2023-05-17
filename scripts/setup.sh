@@ -123,7 +123,11 @@ function main {
     exit 1
   fi
 
-  check_auth
+  if ! check_auth; then
+    # Repeat auth status check so that any errors get printed to the console
+    gh auth status
+    exit 1
+  fi
 
   if ! is_gh_repo_collab_installed; then
     install_gh_repo_collab
