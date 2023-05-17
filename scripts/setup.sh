@@ -94,9 +94,9 @@ function create_repo {
 }
 
 # Output a list of all issues in the template repository. Each entry will be a
-# JSON string that includes the title, body, and labels.
+# JSON string that includes the title, body, labels, and assignees.
 function get_issues {
-  gh issue list --repo "${TEMPLATE_REPO}" --json title,body,labels | jq -c '.[]'
+  gh issue list --repo "${TEMPLATE_REPO}" --json title,body,labels,assignees | jq -c '.[]'
 }
 
 # Output a JSON list of all pull requests in the template repository. Each
@@ -119,12 +119,14 @@ function add_issues {
   local body
   local title
   local labels
+  local assignees
 
   for issue in "${issues[@]}"; do
     title="$(jq -r '.title' <<< "${issue}")"
     body="$(jq -r '.body' <<< "${issue}")"
     labels="$(jq -r '.labels | map(.name) | join(",")' <<< "${issue}")"
-    gh issue create --repo "${repo_name}" --title "${title}" --body "${body}"  --label "${labels}"
+    assignees="$(jq -r '.assignees | map(.login) | join(",")' <<< "${issue}")"
+    gh issue create --repo "${repo_name}" --title "${title}" --body "${body}"  --label "${labels}" --assignee "${assignees}"
   done
 }
 
