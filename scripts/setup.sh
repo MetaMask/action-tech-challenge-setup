@@ -94,16 +94,18 @@ function create_repo {
 }
 
 # Output a list of all issues in the template repository. Each entry will be a
-# JSON string that includes the title, body, labels, and assignees.
+# JSON string that includes the issue number, title, body, labels, and
+# assignees. The list will be sorted by issue number (ascending).
 function get_issues {
-  gh issue list --repo "${TEMPLATE_REPO}" --json title,body,labels,assignees | jq -c '.[]'
+  gh issue list --repo "${TEMPLATE_REPO}" --json number,title,body,labels,assignees | jq -c 'sort_by(.number) | .[]'
 }
 
 # Output a JSON list of all pull requests in the template repository. Each
-# entry will be a JSON string that includes the title, body, and the branch
-# name (under the key 'headRefName')
+# entry will be a JSON string that includes the PR number, title, body, and the
+# branch name (under the key 'headRefName'). The list will be sorted by PR
+# number (ascending).
 function get_prs {
-  gh pr list --repo "${TEMPLATE_REPO}" --json title,body,headRefName | jq -c '.[]'
+  gh pr list --repo "${TEMPLATE_REPO}" --json number,title,body,headRefName | jq -c 'sort_by(.number) | .[]'
 }
 
 
@@ -195,10 +197,11 @@ function main {
 
   create_repo "${repo_name}" "${github_username}"
 
-  # Add PRs first because one of the issues references a PR as "#1"
-  add_prs "${repo_name}"
-
+  # Add issues first because the template includes issue references in issue
+  # and PR bodies.
   add_issues "${repo_name}"
+
+  add_prs "${repo_name}"
 }
 
 main "${@}"
