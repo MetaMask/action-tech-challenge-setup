@@ -3,7 +3,7 @@
 set -e
 set -o pipefail
 
-readonly __USAGE__="Usage: ${0##*/} [options] <template_repository> <github_username>"
+readonly __USAGE__="Usage: ${0##*/} [options] <template_repository> <owner> <github_username>"
 
 function show_help {
     cat << EOF
@@ -23,6 +23,8 @@ installed and that authentication is setup.
     <template_repository>  The template repository for the technical challenge
                            given in the format "[owner]/[repository name]"
                            (for example: 'MetaMaskHiring/technical-challenge')
+    <owner>                The owner of the new repository (typically a free
+                           GitHub organization)
     <github_username>      The username of the candidate
 
 EOF
@@ -52,12 +54,14 @@ function install_gh_repo_collab {
 
 # Get the name of the technical challenge repository
 # $1 - The template repository
-# $2 - The GitHub username of the candidate
+# $2 - The owner of the new technical challenge repository
+# $3 - The GitHub username of the candidate
 function get_repo_name {
   local template_repository="${1}"
-  local github_username="${2}"
+  local owner="${2}"
+  local github_username="${3}"
 
-  echo "${template_repository}-${github_username}"
+  echo "${owner}/${template_repository#*/}-${github_username}"
 }
 
 # Get the branch names for all template repository PRs
@@ -190,6 +194,7 @@ function add_prs {
 
 function main {
   local template_repository
+  local owner
   local github_username
   local invite='true'
 
@@ -207,6 +212,8 @@ function main {
           break
         elif [[ -z $template_repository ]]; then
           template_repository="${1}"
+        elif [[ -z $owner ]]; then
+          owner="${1}"
         elif [[ -z $github_username ]]; then
           github_username="${1}"
         else
@@ -221,6 +228,10 @@ function main {
 
   if [[ -z $template_repository ]]; then
     echo 'Missing required argument: <template_repository>' >&2
+    printf "%s\\n" "${__USAGE__}" >&2
+    exit 1
+  elif [[ -z $owner ]]; then
+    echo 'Missing required argument: <owner>' >&2
     printf "%s\\n" "${__USAGE__}" >&2
     exit 1
   elif [[ -z $github_username ]]; then
@@ -240,7 +251,7 @@ function main {
   fi
 
   local repo_name
-  repo_name="$(get_repo_name "${template_repository}" "${github_username}")"
+  repo_name="$(get_repo_name "${template_repository}" "${owner}" "${github_username}")"
 
   create_repo "${template_repository}" "${repo_name}" "${github_username}"
 
