@@ -1,0 +1,20 @@
+name: 'Setup tech challenge'
+description: 'Create a new private technical challenge repository for a candidate'
+inputs:
+  github-username:
+    description: 'The GitHub username of the candidate'
+    required: true
+  template-repository:
+    description: 'The technical challenge template repository'
+    required: true
+  owner:
+    description: 'The owner of the technical challenge repository (typically a free GitHub organization)'
+    required: false
+    default: MetaMaskHiring
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup technical challenge
+      shell: bash
+      run: ${{ github.action_path }}/scripts/setup.sh "${{ inputs.template-repository }}" "${{ inputs.owner }}" "${{ inputs.github_username }}"

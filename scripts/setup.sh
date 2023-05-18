@@ -9,9 +9,9 @@ function show_help {
     cat << EOF
 ${__USAGE__}
 
-Setup a MetaMask Shared Libraries team technical challenge repository. This
-script will create a new private GitHub repository for a candidate, prepare
-tasks for them to work on, then invite them as a collaborator.
+Setup a technical challenge repository using the given template. This script
+will create a new private GitHub repository for a candidate, prepare tasks for
+them to work on, then invite them as a collaborator.
 
 This script relies upon the GitHub CLI (\`gh\`). It assumes that \`gh\` is
 installed and that authentication is setup.
