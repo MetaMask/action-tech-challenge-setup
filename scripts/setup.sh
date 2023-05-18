@@ -79,11 +79,14 @@ function create_repo {
 
   gh repo create "${repo_name}" --private --source "${temporary_directory}" --remote "${remote_name}" --push
 
-  # Configure the repo with the personal access token so that pushes work
+  # If running from a GitHub Action, set authorization header explicitly so that the later 'git push' step works
   # Source: <https://github.com/actions/checkout/blob/f095bcc56b7c2baf48f3ac70d6d6782f4f553222/src/git-auth-helper.ts>
-  local encoded_token
-  encoded_token="$(echo -n "x-access-token:${GITHUB_TOKEN}" | base64)"
-  (cd "${temporary_directory}" && git config "http.https://github.com/.extraHeader" "Authorization: Basic ${encoded_token}")
+  if [[ -n $GITHUB_TOKEN ]]; then
+    echo "GitHub Actions environment detected, configuring Authorization header"
+    local encoded_token
+    encoded_token="$(echo -n "x-access-token:${GITHUB_TOKEN}" | base64)"
+    (cd "${temporary_directory}" && git config "http.https://github.com/.extraHeader" "Authorization: Basic ${encoded_token}")
+  fi
 
   # Sync additional branches needed for PRs
   local remote_branches
