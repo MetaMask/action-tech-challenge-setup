@@ -17,4 +17,4 @@ runs:
   steps:
     - name: Setup technical challenge
       shell: bash
-      run: ${{ github.action_path }}/scripts/setup.sh "${{ inputs.template-repository }}" "${{ inputs.owner }}" "${{ inputs.github_username }}"
+      run: ${{ github.action_path }}/scripts/setup.sh "${{ inputs.template-repository }}" "${{ inputs.owner }}" "${{ inputs.github-username }}"
