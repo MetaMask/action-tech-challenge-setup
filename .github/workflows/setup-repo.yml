@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run the setup script
-        run: ./scripts/setup.sh "${{ github.event.inputs.github-username }}"
+        run: ./scripts/setup.sh 'MetaMaskHiring/technical-challenge-shared-libraries'  "${{ github.event.inputs.github-username }}"
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.CREATE_REPO_TOKEN }}

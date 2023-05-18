@@ -3,10 +3,7 @@
 set -e
 set -o pipefail
 
-readonly __USAGE__="Usage: ${0##*/} [options] <github_username>"
-
-readonly ORGANIZATION="MetaMaskHiring"
-readonly TEMPLATE_REPO="${ORGANIZATION}/technical-challenge-shared-libraries"
+readonly __USAGE__="Usage: ${0##*/} [options] <template_repository> <github_username>"
 
 function show_help {
     cat << EOF
@@ -20,10 +17,13 @@ This script relies upon the GitHub CLI (\`gh\`). It assumes that \`gh\` is
 installed and that authentication is setup.
 
 
-    -h, -?, --help       Show this help message
-    -s, --skip-invite    Skip the step where the candidate is invited as a
-                         collaborator
-    <github_username>    The username of the candidate
+    -h, -?, --help         Show this help message
+    -s, --skip-invite      Skip the step where the candidate is invited as a
+                           collaborator
+    <template_repository>  The template repository for the technical challenge
+                           given in the format "[owner]/[repository name]"
+                           (for example: 'MetaMaskHiring/technical-challenge')
+    <github_username>      The username of the candidate
 
 EOF
 }
@@ -51,29 +51,36 @@ function install_gh_repo_collab {
 }
 
 # Get the name of the technical challenge repository
-# $1 - The GitHub username of the candidate
+# $1 - The template repository
+# $2 - The GitHub username of the candidate
 function get_repo_name {
-  local github_username="${1}"
+  local template_repository="${1}"
+  local github_username="${2}"
 
-  echo "${TEMPLATE_REPO}-${github_username}"
+  echo "${template_repository}-${github_username}"
 }
 
 # Get the branch names for all template repository PRs
+# $1 - The template repository
 function get_pr_branches {
-  gh pr list --repo "${TEMPLATE_REPO}" --json headRefName | jq -r '.[].headRefName'
+  local template_repository="${1}"
+
+  gh pr list --repo "${template_repository}" --json headRefName | jq -r '.[].headRefName'
 }
 
 # Create a new technical challenge repository
-# $1 - The name of the new repository
-# $2 - The GitHub username of the candidate
+# $1 - The template repository
+# $2 - The name of the new repository
+# $3 - The GitHub username of the candidate
 function create_repo {
-  local repo_name="${1}"
-  local github_username="${2}"
+  local template_repository="${1}"
+  local repo_name="${2}"
+  local github_username="${3}"
 
   local temporary_directory
   temporary_directory="$(mktemp -d)"
 
-  gh repo clone "${TEMPLATE_REPO}" "${temporary_directory}"
+  gh repo clone "${template_repository}" "${temporary_directory}"
 
   # set an arbirary remote name that does not conflict with 'origin'
   local remote_name
@@ -92,7 +99,7 @@ function create_repo {
 
   # Sync additional branches needed for PRs
   local remote_branches
-  mapfile -t remote_branches < <(get_pr_branches)
+  mapfile -t remote_branches < <(get_pr_branches "${template_repository}")
 
   for branch in "${remote_branches[@]}"; do
     (cd "${temporary_directory}" && git push "${remote_name}" "refs/remotes/origin/${branch}:refs/heads/${branch}")
@@ -115,27 +122,35 @@ function invite_candidate {
 # Output a list of all issues in the template repository. Each entry will be a
 # JSON string that includes the issue number, title, body, labels, and
 # assignees. The list will be sorted by issue number (ascending).
+# $1 - The template repository
 function get_issues {
-  gh issue list --repo "${TEMPLATE_REPO}" --json number,title,body,labels,assignees | jq -c 'sort_by(.number) | .[]'
+  local template_repository="${1}"
+
+  gh issue list --repo "${template_repository}" --json number,title,body,labels,assignees | jq -c 'sort_by(.number) | .[]'
 }
 
 # Output a JSON list of all pull requests in the template repository. Each
 # entry will be a JSON string that includes the PR number, title, body, and the
 # branch name (under the key 'headRefName'). The list will be sorted by PR
 # number (ascending).
+# $1 - The template repository
 function get_prs {
-  gh pr list --repo "${TEMPLATE_REPO}" --json number,title,body,headRefName | jq -c 'sort_by(.number) | .[]'
+  local template_repository="${1}"
+
+  gh pr list --repo "${template_repository}" --json number,title,body,headRefName | jq -c 'sort_by(.number) | .[]'
 }
 
 
 
 # Create issues in the technical challenge repository
-# $1 - The name of the new repository
+# $1 - The template repository
+# $2 - The name of the new repository
 function add_issues {
-  local repo_name="${1}"
+  local template_repository="${1}"
+  local repo_name="${2}"
 
   local issues
-  mapfile -t issues < <(get_issues)
+  mapfile -t issues < <(get_issues "${template_repository}")
 
   local body
   local title
@@ -152,12 +167,14 @@ function add_issues {
 }
 
 # Create pull requests in the technical challenge repository
-# $1 - The name of the new repository
+# $1 - The template repository
+# $2 - The name of the new repository
 function add_prs {
-  local repo_name="${1}"
+  local template_repository="${1}"
+  local repo_name="${2}"
 
   local prs
-  mapfile -t prs < <(get_prs)
+  mapfile -t prs < <(get_prs "${template_repository}")
 
   local body
   local title
@@ -172,6 +189,7 @@ function add_prs {
 }
 
 function main {
+  local template_repository
   local github_username
   local invite='true'
 
@@ -187,6 +205,8 @@ function main {
       *)
         if [[ -z $1 ]]; then
           break
+        elif [[ -z $template_repository ]]; then
+          template_repository="${1}"
         elif [[ -z $github_username ]]; then
           github_username="${1}"
         else
@@ -199,7 +219,11 @@ function main {
     shift
   done
 
-  if [[ -z $github_username ]]; then
+  if [[ -z $template_repository ]]; then
+    echo 'Missing required argument: <template_repository>' >&2
+    printf "%s\\n" "${__USAGE__}" >&2
+    exit 1
+  elif [[ -z $github_username ]]; then
     echo 'Missing required argument: <github_username>' >&2
     printf "%s\\n" "${__USAGE__}" >&2
     exit 1
@@ -216,9 +240,9 @@ function main {
   fi
 
   local repo_name
-  repo_name="$(get_repo_name "${github_username}")"
+  repo_name="$(get_repo_name "${template_repository}" "${github_username}")"
 
-  create_repo "${repo_name}" "${github_username}"
+  create_repo "${template_repository}" "${repo_name}" "${github_username}"
 
   if [[ $invite == 'true' ]]; then
     invite_candidate "${repo_name}" "${github_username}"
@@ -226,9 +250,9 @@ function main {
 
   # Add issues first because the template includes issue references in issue
   # and PR bodies.
-  add_issues "${repo_name}"
+  add_issues "${template_repository}" "${repo_name}"
 
-  add_prs "${repo_name}"
+  add_prs "${template_repository}" "${repo_name}"
 }
 
 main "${@}"
