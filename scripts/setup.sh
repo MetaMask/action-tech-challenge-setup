@@ -3,7 +3,7 @@
 set -e
 set -o pipefail
 
-readonly __USAGE__="Usage: ${0##*/} [--help] <github_username>"
+readonly __USAGE__="Usage: ${0##*/} [options] <github_username>"
 
 readonly ORGANIZATION="MetaMaskHiring"
 readonly TEMPLATE_REPO="${ORGANIZATION}/technical-challenge-shared-libraries"
@@ -21,6 +21,8 @@ installed and that authentication is setup.
 
 
     -h, -?, --help       Show this help message
+    -s, --skip-invite    Skip the step where the candidate is invited as a
+                         collaborator
     <github_username>    The username of the candidate
 
 EOF
@@ -97,6 +99,14 @@ function create_repo {
   done
 
   rm -rf "${temporary_directory}"
+}
+
+# Invite the candidate to collaborate on the new repository
+# $1 - The name of the new repository
+# $2 - The GitHub username of the candidate
+function invite_candidate {
+  local repo_name="${1}"
+  local github_username="${2}"
 
   # Use '| cat' to suppress prompt for confirmation
   gh repo-collab add "${repo_name}" "${github_username}" --permission write | cat
@@ -163,12 +173,16 @@ function add_prs {
 
 function main {
   local github_username
+  local invite='true'
 
   while :; do
     case $1 in
       -h|-\?|--help)
         show_help
         exit
+        ;;
+      -s|--skip-invite)
+        invite='false'
         ;;
       *)
         if [[ -z $1 ]]; then
@@ -197,7 +211,7 @@ function main {
     exit 1
   fi
 
-  if ! is_gh_repo_collab_installed; then
+  if [[ $invite == 'true' ]] && ! is_gh_repo_collab_installed; then
     install_gh_repo_collab
   fi
 
@@ -205,6 +219,10 @@ function main {
   repo_name="$(get_repo_name "${github_username}")"
 
   create_repo "${repo_name}" "${github_username}"
+
+  if [[ $invite == 'true' ]]; then
+    invite_candidate "${repo_name}" "${github_username}"
+  fi
 
   # Add issues first because the template includes issue references in issue
   # and PR bodies.
